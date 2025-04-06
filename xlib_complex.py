@@ -3,6 +3,7 @@ import Xlib.display
 import Xlib.X
 import Xlib.protocol.event
 import Xlib.XK
+from Xlib.ext import xtest
 import subprocess
 import time
 
@@ -32,7 +33,7 @@ display = Xlib.display.Display()
 root = display.screen().root
 
 # Use the specific window ID instead of searching
-window_id = 0x4000005
+window_id = 0x4400005
 try:
     target_window = display.create_resource_object('window', window_id)
 except Xlib.error.XError:
@@ -55,75 +56,68 @@ event = Xlib.protocol.event.FocusIn(
     detail=Xlib.X.NotifyAncestor
 )
 target_window.send_event(event, propagate=True)
-
 display.flush()
 time.sleep(0.1)
 
+relative_x = 2092
+relative_y = 722
 
-# Send a key press event (e.g., '8')
-keycode = display.keysym_to_keycode(Xlib.XK.XK_8)
-event = Xlib.protocol.event.KeyPress(
-    time=Xlib.X.CurrentTime,
-    root=root,
-    window=target_window,
-    same_screen=1,
-    child=Xlib.X.NONE,
-    root_x=0,
-    root_y=0,
-    event_x=0,
-    event_y=0,
-    state=0,
-    detail=keycode
-)
-target_window.send_event(event, propagate=True)
+def click_position(x, y):
+    relative_x = x
+    relative_y = y
 
-display.flush()
+    # Pretend that mouse moved
+    motion_event = Xlib.protocol.event.MotionNotify(
+        time=Xlib.X.CurrentTime,
+        root=display.screen().root,
+        window=target_window,
+        same_screen=1,
+        child=Xlib.X.NONE,
+        root_x=0,    # Root coordinates don't matter for root window
+        root_y=0,    # Root coordinates don't matter for root window
+        event_x=relative_x,     # Relative position within window
+        event_y=relative_y,     # Relative position within window
+        state=0,  # No modifier keys
+        is_hint=0,
+        detail=0
+    )
+    target_window.send_event(motion_event, propagate=True)
+    display.flush()
+    time.sleep(0.05)
 
-time.sleep(0.1)
+    # Create mouse press event
+    event = Xlib.protocol.event.ButtonPress(
+        time=Xlib.X.CurrentTime,
+        root=root,
+        window=target_window,
+        same_screen=1,
+        child=Xlib.X.NONE,
+        root_x=0,    # Root coordinates don't matter for root window
+        root_y=0,    # Root coordinates don't matter for root window
+        event_x=relative_x,     # Relative position within window
+        event_y=relative_y,     # Relative position within window
+        state=0,
+        detail=1  # Button 1 (left click)
+    )
+    target_window.send_event(event, propagate=True)
+    display.flush()
+    time.sleep(0.05)
 
-# Calculate window coordinates (no need for absolute screen coordinates)
-target_x = window_info['width'] // 2
-target_y = window_info['height'] // 3
+    # Create mouse release event
+    event = Xlib.protocol.event.ButtonRelease(
+        time=Xlib.X.CurrentTime,
+        root=root, 
+        window=target_window,
+        same_screen=1,
+        child=Xlib.X.NONE,
+        root_x=0,     # Root coordinates don't matter for root window
+        root_y=0,    # Root coordinates don't matter for root window
+        event_x=relative_x,     # Relative position within window
+        event_y=relative_y,     # Relative position within window
+        state=0,
+        detail=1  # Button 1 (left click)
+    )
+    target_window.send_event(event, propagate=True)
+    display.flush()
 
-print(f"Clicking at window coordinates: ({target_x}, {target_y})")
-
-# Create mouse press event
-event = Xlib.protocol.event.ButtonPress(
-    time=Xlib.X.CurrentTime,
-    root=root,
-    window=target_window,
-    same_screen=1,
-    child=Xlib.X.NONE,
-    root_x=0,    # Root coordinates don't matter for root window
-    root_y=0,    # Root coordinates don't matter for root window
-    event_x=target_x,     # Relative position within window
-    event_y=target_y,     # Relative position within window
-    state=0,
-    detail=1  # Button 1 (left click)
-)
-target_window.send_event(event, propagate=True)
-
-display.flush()
-
-time.sleep(0.1)
-
-# Create mouse release event
-event = Xlib.protocol.event.ButtonRelease(
-    time=Xlib.X.CurrentTime,
-    root=root,
-    window=target_window,
-    same_screen=1,
-    child=Xlib.X.NONE,
-    root_x=0,    # Root coordinates don't matter for root window
-    root_y=0,    # Root coordinates don't matter for root window
-    event_x=target_x,     # Relative position within window
-    event_y=target_y,     # Relative position within window
-    state=0,
-    detail=1  # Button 1 (left click)
-)
-target_window.send_event(event, propagate=True)
-
-display.flush()
-
-# Add a small delay to ensure the click is processed
-time.sleep(0.1)
+click_position(relative_x, relative_y)
